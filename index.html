@@ -138,15 +138,16 @@
     }
 
     function createNewGame(firstPlayerUid) {
-      return {
-        board: emptyBoard(),
-        currentPlayer: "X",
-        players: { X: firstPlayerUid },
-        scores: { X: 0, O: 0, Draw: 0 },
-        status: "waiting",
-        winner: ""
-      };
-    }
+  return {
+    board: emptyBoard(),
+    startingPlayer: "X",
+    currentPlayer: "X",
+    players: { X: firstPlayerUid },
+    scores: { X: 0, O: 0, Draw: 0 },
+    status: "waiting",
+    winner: ""
+  };
+}
 
     function findWinner(board) {
       for (const pattern of winningPatterns) {
@@ -283,35 +284,40 @@
     }
 
     async function newRound() {
-      if (!roomRef || myRole === "viewer") return;
+  if (!roomRef || myRole === "viewer") return;
 
-      await runTransaction(roomRef, game => {
-        if (!game) return game;
+  await runTransaction(roomRef, game => {
+    if (!game) return game;
 
-        game.board = emptyBoard();
-        game.currentPlayer = "X";
-        game.winner = "";
-        game.status = game.players?.X && game.players?.O ? "playing" : "waiting";
+    const previousStarter = game.startingPlayer || "X";
+    const nextStarter = previousStarter === "X" ? "O" : "X";
 
-        return game;
-      });
-    }
+    game.board = emptyBoard();
+    game.startingPlayer = nextStarter;
+    game.currentPlayer = nextStarter;
+    game.winner = "";
+    game.status = game.players?.X && game.players?.O ? "playing" : "waiting";
+
+    return game;
+  });
+}
 
     async function resetScore() {
-      if (!roomRef || myRole === "viewer") return;
+  if (!roomRef || myRole === "viewer") return;
 
-      await runTransaction(roomRef, game => {
-        if (!game) return game;
+  await runTransaction(roomRef, game => {
+    if (!game) return game;
 
-        game.scores = { X: 0, O: 0, Draw: 0 };
-        game.board = emptyBoard();
-        game.currentPlayer = "X";
-        game.winner = "";
-        game.status = game.players?.X && game.players?.O ? "playing" : "waiting";
+    game.scores = { X: 0, O: 0, Draw: 0 };
+    game.board = emptyBoard();
+    game.startingPlayer = "X";
+    game.currentPlayer = "X";
+    game.winner = "";
+    game.status = game.players?.X && game.players?.O ? "playing" : "waiting";
 
-        return game;
-      });
-    }
+    return game;
+  });
+}
 
     cells.forEach(cell => {
       cell.addEventListener("click", () => makeMove(Number(cell.dataset.index)));
