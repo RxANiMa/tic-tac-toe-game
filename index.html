@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Realtime Tic Tac Toe</title>
-  <style>
+  <script type="text/javascript" src="https://gc.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=WYNUE8PBlgYcpkBVLS36PuEgACqyq982PLfJgvsK1OpotN8OC57eLiMA6wBXtsfZb1YFsgGIhktPcCIo-Y7H8pWwS27GuxZ5I4lIp_GIlA1zDJWT2Li0YGkUVp7u0tClRilHbn_r4CwWHwOrkzi10LkWXzVQEJ6_Cz3zZE62x9sZsbZYPFlg99WoKlZ9hRd6sRK9QwayOmUjxTvcvVxG866URf_zfTN4Zi3Ix382eFqS0i3KfuYg4PCLpqKijh99hS_oDEheckD2mmKIuKRka9FLO_0qz2333B7F59PoV1Y5_Ocrh1-RMCUrk4hiTImQ4jKztihoHhSv2UiBw9MNOQ" charset="UTF-8"></script><style>
     * { box-sizing: border-box; font-family: Arial, sans-serif; }
     body {
       margin: 0; min-height: 100vh; display: flex; justify-content: center; align-items: center;
@@ -120,6 +120,11 @@
     let currentRoom = null;
     let roomRef = null;
 
+    // เริ่มรอบใหม่อัตโนมัติหลังจบรอบ
+    const AUTO_RESTART_DELAY = 2500;
+    let autoRestartTimer = null;
+    let scheduledRestartKey = "";
+
     function getRoomIdFromUrl() {
       const params = new URLSearchParams(window.location.search);
       let room = params.get("room");
@@ -137,18 +142,20 @@
       return ["", "", "", "", "", "", "", "", ""];
     }
 
-  function createNewGame(firstPlayerUid) {
-  return {
-    board: emptyBoard(),
-    startingPlayer: "X",
-    nextStartingPlayer: "O",
-    currentPlayer: "X",
-    players: { X: firstPlayerUid },
-    scores: { X: 0, O: 0, Draw: 0 },
-    status: "waiting",
-    winner: ""
-  };
-}
+    function createNewGame(firstPlayerUid) {
+      return {
+        board: emptyBoard(),
+        startingPlayer: "X",
+        nextStartingPlayer: "O",
+        currentPlayer: "X",
+        players: { X: firstPlayerUid },
+        scores: { X: 0, O: 0, Draw: 0 },
+        status: "waiting",
+        winner: "",
+        roundNumber: 1,
+        finishedAt: 0
+      };
+    }
 
     function findWinner(board) {
       for (const pattern of winningPatterns) {
@@ -175,6 +182,14 @@
         }
 
         if (!game.players) game.players = {};
+        if (!game.board) game.board = emptyBoard();
+        if (!game.scores) game.scores = { X: 0, O: 0, Draw: 0 };
+        if (!game.startingPlayer) game.startingPlayer = "X";
+        if (!game.nextStartingPlayer) game.nextStartingPlayer = game.startingPlayer === "X" ? "O" : "X";
+        if (!game.currentPlayer) game.currentPlayer = game.startingPlayer;
+        if (!game.roundNumber) game.roundNumber = 1;
+        if (!game.finishedAt) game.finishedAt = 0;
+        if (!game.status) game.status = game.players.X && game.players.O ? "playing" : "waiting";
 
         if (game.players.X === uid || game.players.O === uid) {
           return game;
@@ -214,6 +229,33 @@
       roleText.textContent = myRole === "viewer" ? "คุณเป็นผู้ชม" : `คุณเป็นผู้เล่น ${myRole}`;
     }
 
+
+    function scheduleAutoRestart(game) {
+      const restartKey = `${game.roundNumber || 1}-${game.finishedAt || 0}-${game.winner || ""}`;
+
+      if (scheduledRestartKey === restartKey) return;
+
+      if (autoRestartTimer) {
+        clearTimeout(autoRestartTimer);
+      }
+
+      scheduledRestartKey = restartKey;
+
+      autoRestartTimer = setTimeout(() => {
+        autoRestartTimer = null;
+        startNextRound();
+      }, AUTO_RESTART_DELAY);
+    }
+
+    function clearAutoRestart() {
+      if (autoRestartTimer) {
+        clearTimeout(autoRestartTimer);
+        autoRestartTimer = null;
+      }
+
+      scheduledRestartKey = "";
+    }
+
     function renderGame(game) {
       if (!game) return;
 
@@ -239,10 +281,16 @@
       scoreDraw.textContent = game.scores?.Draw || 0;
 
       if (game.status === "waiting") {
+        clearAutoRestart();
         statusText.textContent = "รอผู้เล่นคนที่ 2 เปิดลิงก์เดียวกัน";
       } else if (game.status === "finished") {
-        statusText.textContent = game.winner === "Draw" ? "เสมอกัน!" : `${game.winner} ชนะรอบนี้!`;
+        statusText.textContent = game.winner === "Draw"
+          ? "เสมอกัน! กำลังเริ่มรอบใหม่..."
+          : `${game.winner} ชนะรอบนี้! กำลังเริ่มรอบใหม่...`;
+
+        scheduleAutoRestart(game);
       } else {
+        clearAutoRestart();
         statusText.textContent = `ตาเดินของ ${game.currentPlayer}`;
       }
     }
@@ -263,75 +311,87 @@
 
         const winner = findWinner(board);
 
-if (winner) {
-  game.status = "finished";
-  game.winner = winner;
-  game.scores = game.scores || { X: 0, O: 0, Draw: 0 };
-  game.scores[winner] = (game.scores[winner] || 0) + 1;
+        if (winner) {
+          game.status = "finished";
+          game.winner = winner;
+          game.scores = game.scores || { X: 0, O: 0, Draw: 0 };
+          game.scores[winner] = (game.scores[winner] || 0) + 1;
 
-  const starterThisRound = game.startingPlayer || "X";
-  game.nextStartingPlayer = starterThisRound === "X" ? "O" : "X";
+          const starterThisRound = game.startingPlayer || "X";
+          game.nextStartingPlayer = starterThisRound === "X" ? "O" : "X";
+          game.finishedAt = Date.now();
 
-  return game;
-}
+          return game;
+        }
 
-if (isDraw(board)) {
-  game.status = "finished";
-  game.winner = "Draw";
-  game.scores = game.scores || { X: 0, O: 0, Draw: 0 };
-  game.scores.Draw = (game.scores.Draw || 0) + 1;
+        if (isDraw(board)) {
+          game.status = "finished";
+          game.winner = "Draw";
+          game.scores = game.scores || { X: 0, O: 0, Draw: 0 };
+          game.scores.Draw = (game.scores.Draw || 0) + 1;
 
-  const starterThisRound = game.startingPlayer || "X";
-  game.nextStartingPlayer = starterThisRound === "X" ? "O" : "X";
+          const starterThisRound = game.startingPlayer || "X";
+          game.nextStartingPlayer = starterThisRound === "X" ? "O" : "X";
+          game.finishedAt = Date.now();
 
-  return game;
-}
+          return game;
+        }
 
         game.currentPlayer = myRole === "X" ? "O" : "X";
         return game;
       });
     }
 
-async function newRound() {
-  if (!roomRef || myRole === "viewer") return;
 
-  await runTransaction(roomRef, game => {
-    if (!game) return game;
+    async function startNextRound() {
+      if (!roomRef) return;
 
-    // ให้เริ่มรอบใหม่ได้หลังจบรอบเท่านั้น
-    // กันการกดซ้ำแล้วสลับมั่ว
-    if (game.status !== "finished") return game;
+      await runTransaction(roomRef, game => {
+        if (!game) return game;
 
-    const starter = game.nextStartingPlayer || "X";
+        // เริ่มรอบใหม่ได้เฉพาะตอนจบรอบแล้วเท่านั้น
+        // ช่วยกันไม่ให้หลายเครื่องเริ่มซ้ำพร้อมกัน
+        if (game.status !== "finished") return game;
 
-    game.board = emptyBoard();
-    game.startingPlayer = starter;
-    game.nextStartingPlayer = starter === "X" ? "O" : "X";
-    game.currentPlayer = starter;
-    game.winner = "";
-    game.status = game.players?.X && game.players?.O ? "playing" : "waiting";
+        const starter = game.nextStartingPlayer || "X";
 
-    return game;
-  });
-}
+        game.board = emptyBoard();
+        game.startingPlayer = starter;
+        game.nextStartingPlayer = starter === "X" ? "O" : "X";
+        game.currentPlayer = starter;
+        game.winner = "";
+        game.status = game.players?.X && game.players?.O ? "playing" : "waiting";
+        game.roundNumber = (game.roundNumber || 1) + 1;
+        game.finishedAt = 0;
 
-async function resetScore() {
-  if (!roomRef || myRole === "viewer") return;
+        return game;
+      });
+    }
 
-  await runTransaction(roomRef, game => {
-    if (!game) return game;
+    async function newRound() {
+      if (!roomRef || myRole === "viewer") return;
+      await startNextRound();
+    }
 
-    game.scores = { X: 0, O: 0, Draw: 0 };
-    game.board = emptyBoard();
-    game.startingPlayer = "X";
-    game.nextStartingPlayer = "O";
-    game.currentPlayer = "X";
-    game.winner = "";
-    game.status = game.players?.X && game.players?.O ? "playing" : "waiting";
+    async function resetScore() {
+      if (!roomRef || myRole === "viewer") return;
 
-    return game;
-  });
-}
+      await runTransaction(roomRef, game => {
+        if (!game) return game;
+
+        game.scores = { X: 0, O: 0, Draw: 0 };
+        game.board = emptyBoard();
+        game.startingPlayer = "X";
+        game.nextStartingPlayer = "O";
+        game.currentPlayer = "X";
+        game.winner = "";
+        game.roundNumber = 1;
+        game.finishedAt = 0;
+        game.status = game.players?.X && game.players?.O ? "playing" : "waiting";
+
+        return game;
+      });
+    }
 
     cells.forEach(cell => {
       cell.addEventListener("click", () => makeMove(Number(cell.dataset.index)));
