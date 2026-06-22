@@ -120,6 +120,10 @@
     let currentRoom = null;
     let roomRef = null;
 
+    const AUTO_RESTART_DELAY = 250;
+    let autoRestartTimer = null;
+    let scheduledRestartKey = "";
+
     function getRoomIdFromUrl() {
       const params = new URLSearchParams(window.location.search);
       let room = params.get("room");
@@ -212,6 +216,37 @@
       roleText.textContent = myRole === "viewer" ? "คุณเป็นผู้ชม" : `คุณเป็นผู้เล่น ${myRole}`;
     }
 
+    function scheduleAutoRestart(game) {
+  const restartKey = `${game.winner}-${game.board?.join("")}`;
+
+  if (scheduledRestartKey === restartKey) return;
+
+  if (autoRestartTimer) {
+    clearTimeout(autoRestartTimer);
+  }
+
+  scheduledRestartKey = restartKey;
+
+  autoRestartTimer = setTimeout(() => {
+    autoRestartTimer = null;
+
+    // ให้เฉพาะผู้เล่นเป็นคนสั่งเริ่มรอบใหม่
+    // ผู้ชมจะไม่สั่ง
+    if (myRole !== "viewer") {
+      newRound();
+    }
+  }, AUTO_RESTART_DELAY);
+}
+
+function clearAutoRestart() {
+  if (autoRestartTimer) {
+    clearTimeout(autoRestartTimer);
+    autoRestartTimer = null;
+  }
+
+  scheduledRestartKey = "";
+}
+
     function renderGame(game) {
       if (!game) return;
 
@@ -237,13 +272,18 @@
       scoreDraw.textContent = game.scores?.Draw || 0;
 
       if (game.status === "waiting") {
-        statusText.textContent = "รอผู้เล่นคนที่ 2 เปิดลิงก์เดียวกัน";
-      } else if (game.status === "finished") {
-        statusText.textContent = game.winner === "Draw" ? "เสมอกัน!" : `${game.winner} ชนะรอบนี้!`;
-      } else {
-        statusText.textContent = `ตาเดินของ ${game.currentPlayer}`;
-      }
-    }
+  clearAutoRestart();
+  statusText.textContent = "รอผู้เล่นคนที่ 2 เปิดลิงก์เดียวกัน";
+} else if (game.status === "finished") {
+  statusText.textContent = game.winner === "Draw"
+    ? "เสมอกัน! กำลังเริ่มรอบใหม่..."
+    : `${game.winner} ชนะรอบนี้! กำลังเริ่มรอบใหม่...`;
+
+  scheduleAutoRestart(game);
+} else {
+  clearAutoRestart();
+  statusText.textContent = `ตาเดินของ ${game.currentPlayer}`;
+}
 
     async function makeMove(index) {
       if (!roomRef || myRole === "viewer") return;
