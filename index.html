@@ -147,8 +147,14 @@ function createNewGame(firstPlayerUid) {
     startingPlayer: "X",
     nextStartingPlayer: "O",
     currentPlayer: "X",
-    players: { X: firstPlayerUid },
-    scores: { X: 0, O: 0, Draw: 0 },
+    players: {
+      X: firstPlayerUid
+    },
+    scores: {
+      X: 0,
+      O: 0,
+      Draw: 0
+    },
     status: "waiting",
     winner: "",
     roundNumber: 1,
@@ -171,40 +177,94 @@ function createNewGame(firstPlayerUid) {
     }
 
     async function joinRoom() {
-      currentRoom = getRoomIdFromUrl();
-      roomIdText.textContent = currentRoom;
-      roomRef = ref(db, `games/${currentRoom}`);
+  currentRoom = getRoomIdFromUrl();
+  roomIdText.textContent = currentRoom;
+  roomRef = ref(db, `games/${currentRoom}`);
 
-      await runTransaction(roomRef, game => {
-        if (game === null) {
-          return createNewGame(uid);
-        }
+  statusText.textContent = "กำลังเข้าห้องเกม...";
+  roleText.textContent = "กำลังจัดผู้เล่น...";
 
-        if (!game.players) game.players = {};
+  try {
+    await runTransaction(roomRef, game => {
+      // ถ้ายังไม่มีห้อง ให้สร้างห้องใหม่ และให้คนแรกเป็น X
+      if (game === null) {
+        return createNewGame(uid);
+      }
 
-        if (game.players.X === uid || game.players.O === uid) {
-          return game;
-        }
+      if (!game.players) {
+        game.players = {};
+      }
 
-        if (!game.players.X) {
-          game.players.X = uid;
-          game.status = game.players.O ? "playing" : "waiting";
-          return game;
-        }
+      if (!game.scores) {
+        game.scores = { X: 0, O: 0, Draw: 0 };
+      }
 
-        if (!game.players.O) {
-          game.players.O = uid;
+      if (!game.board) {
+        game.board = emptyBoard();
+      }
+
+      if (!game.startingPlayer) {
+        game.startingPlayer = "X";
+      }
+
+      if (!game.nextStartingPlayer) {
+        game.nextStartingPlayer = "O";
+      }
+
+      if (!game.currentPlayer) {
+        game.currentPlayer = game.startingPlayer || "X";
+      }
+
+      if (!game.status) {
+        game.status = game.players.X && game.players.O ? "playing" : "waiting";
+      }
+
+      // ถ้าคนนี้เคยเป็น X หรือ O อยู่แล้ว ไม่ต้องจัด role ใหม่
+      if (game.players.X === uid || game.players.O === uid) {
+        return game;
+      }
+
+      // ถ้ายังไม่มี X ให้เป็น X
+      if (!game.players.X) {
+        game.players.X = uid;
+        game.status = game.players.O ? "playing" : "waiting";
+        return game;
+      }
+
+      // ถ้ายังไม่มี O ให้เป็น O
+      if (!game.players.O) {
+        game.players.O = uid;
+
+        // ถ้าเกมยังไม่จบ ให้เริ่มเล่นได้
+        if (game.status !== "finished") {
           game.status = "playing";
-          return game;
         }
 
         return game;
-      });
+      }
 
-      onValue(roomRef, snapshot => {
-        renderGame(snapshot.val());
-      });
-    }
+      // ถ้ามี X และ O แล้ว คนใหม่เป็นผู้ชม ไม่ต้องเขียนอะไรเพิ่ม
+      return game;
+    });
+
+    onValue(roomRef, snapshot => {
+      const game = snapshot.val();
+
+      if (!game) {
+        statusText.textContent = "ไม่พบห้องเกม";
+        roleText.textContent = "ยังไม่ได้เข้าห้อง";
+        return;
+      }
+
+      renderGame(game);
+    });
+
+  } catch (error) {
+    console.error("joinRoom error:", error);
+    statusText.textContent = "เข้าห้องเกมไม่สำเร็จ";
+    roleText.textContent = "กรุณาตรวจ Firebase Rules";
+  }
+}
 
     function updateMyRole(game) {
       if (!game || !game.players) {
