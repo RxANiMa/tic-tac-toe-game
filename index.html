@@ -1,44 +1,88 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="th">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Realtime Tic Tac Toe</title>
-<script type="text/javascript" src="https://gc.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=LMK-xGYtr-ISCude7geAVOBRqvai9hslX7mE3RBVccZ7eoJ25OrVdEI9NMil-CDUGqbEnSqC_X-yceb4djx7VeNVvS_qgO5tIK3OEFzzWCoCGlaIALbOISluDfiHeksBAayiuj09cX0HTRZanw9XscBnsB8vjcPmvecaTrrDKLNucfn0TAdNf1Q6nqzauT_3iOqTlxLTw-5vfS7CfmSZRrW1hrdf8dbY28pb2g10UNhZmM2NB8-ZVTL_01CJFUjPtE_c5Xk0qieDXr_o8Rlkyk4AbZkjY9_0qPKbfgqV1FGzl4_PzLh3fyCFyD0tCkRN" charset="UTF-8"></script><style>
-*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f4f4f4;color:#222;font-family:Arial,sans-serif}main{width:min(94vw,430px);background:#fff;padding:20px;border-radius:18px;box-shadow:0 10px 24px #0002;text-align:center}h1{margin:0 0 8px;font-size:28px}.small,.foot{color:#666;font-size:13px;line-height:1.45}.box{margin:12px 0;padding:10px;border-radius:12px;background:#f1f1f1;word-break:break-word}#status{margin:14px 0;font-size:19px;font-weight:700;min-height:28px}#roleText{display:inline-block;margin-top:7px;padding:7px 11px;background:#222;color:white;border-radius:999px;font-size:13px}#board{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0}.cell{aspect-ratio:1;border:0;border-radius:12px;background:#e9e9e9;font-size:50px;font-weight:700;cursor:pointer;color:#222}.cell:disabled{cursor:not-allowed;color:#222}#scores{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0}.card{background:#f1f1f1;padding:10px;border-radius:12px}.label{font-size:13px;color:#666}.score{font-size:26px;font-weight:700;margin-top:3px}#actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}button.action{border:0;border-radius:10px;padding:11px;font-size:14px;background:#222;color:#fff;cursor:pointer}button.secondary{background:#777}button.wide{grid-column:1/-1}#error{display:none;margin-top:10px;padding:10px;border-radius:10px;background:#fff0f0;color:#a00;font-size:13px;white-space:pre-wrap;text-align:left}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Realtime Tic Tac Toe</title>
+  <style>
+    * { box-sizing: border-box; font-family: Arial, sans-serif; }
+    body {
+      margin: 0; min-height: 100vh; display: flex; justify-content: center; align-items: center;
+      background: #f4f4f4; color: #222;
+    }
+    .container {
+      width: min(94vw, 460px); background: white; padding: 24px; border-radius: 20px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12); text-align: center;
+    }
+    h1 { margin: 0 0 10px; font-size: 30px; }
+    .small { color: #666; font-size: 14px; line-height: 1.5; }
+    .room-box { margin: 14px 0; padding: 12px; border-radius: 14px; background: #f1f1f1; word-break: break-word; }
+    .status { margin: 16px 0; font-size: 20px; font-weight: bold; min-height: 28px; }
+    .role { display: inline-block; margin-top: 8px; padding: 8px 12px; background: #222; color: white; border-radius: 999px; font-size: 14px; }
+    .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 20px 0; }
+    .cell { aspect-ratio: 1 / 1; border: none; border-radius: 14px; background: #e9e9e9; font-size: 52px; font-weight: bold; cursor: pointer; transition: 0.15s; }
+    .cell:hover { background: #dcdcdc; transform: scale(1.02); }
+    .cell:disabled { cursor: not-allowed; color: #222; }
+    .scoreboard { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 18px 0; }
+    .score-card { background: #f1f1f1; padding: 12px; border-radius: 14px; }
+    .label { font-size: 14px; color: #666; }
+    .score { font-size: 28px; font-weight: bold; margin-top: 4px; }
+    .buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+    button.action { border: none; border-radius: 12px; padding: 12px; font-size: 15px; cursor: pointer; background: #222; color: white; }
+    button.secondary { background: #777; }
+    button.wide { grid-column: 1 / -1; }
+    footer { margin-top: 14px; font-size: 12px; color: #888; }
+  </style>
 </head>
 <body>
-<main>
-<h1>Realtime Tic Tac Toe</h1>
-<div class="small">เปิดลิงก์เดียวกันเพื่อเล่นด้วยกัน คนที่ 3 เป็นต้นไปจะเป็นผู้ชม</div>
-<div class="box"><div><b>Room:</b> <span id="roomIdText">Loading...</span></div><div id="roleText">กำลังเชื่อมต่อ...</div></div>
-<div id="status">กำลังโหลดเกม...</div>
-<div id="board">
-<button class="cell" data-i="0"></button><button class="cell" data-i="1"></button><button class="cell" data-i="2"></button>
-<button class="cell" data-i="3"></button><button class="cell" data-i="4"></button><button class="cell" data-i="5"></button>
-<button class="cell" data-i="6"></button><button class="cell" data-i="7"></button><button class="cell" data-i="8"></button>
-</div>
-<section id="scores">
-<div class="card"><div class="label">X ชนะ</div><div class="score" id="scoreX">0</div></div>
-<div class="card"><div class="label">O ชนะ</div><div class="score" id="scoreO">0</div></div>
-<div class="card"><div class="label">เสมอ</div><div class="score" id="scoreDraw">0</div></div>
-</section>
-<div id="actions">
-<button class="action" id="newRoundButton">เริ่มรอบใหม่</button>
-<button class="action secondary" id="resetScoreButton">ล้างคะแนน</button>
-<button class="action wide" id="copyLinkButton">คัดลอกลิงก์ห้องนี้</button>
-<button class="action secondary wide" id="newRoomButton">สร้างห้องใหม่</button>
-</div>
-<div id="error"></div>
-<div class="foot">ระบบจะเริ่มรอบใหม่อัตโนมัติหลังจบรอบ</div>
-</main>
-<script type="module">
-import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-import{getAuth,signInAnonymously,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-import{getDatabase,ref,onValue,runTransaction}from"https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+  <main class="container">
+    <h1>Realtime Tic Tac Toe</h1>
+    <div class="small">เปิดลิงก์เดียวกันเพื่อเล่นด้วยกัน คนที่ 3 เป็นต้นไปจะเป็นผู้ชม</div>
 
-const firebaseConfig = {
+    <div class="room-box">
+      <div><strong>Room:</strong> <span id="roomIdText">Loading...</span></div>
+      <div class="role" id="roleText">กำลังเชื่อมต่อ...</div>
+    </div>
+
+    <div class="status" id="status">กำลังโหลดเกม...</div>
+
+    <div class="board" id="board">
+      <button class="cell" data-index="0"></button>
+      <button class="cell" data-index="1"></button>
+      <button class="cell" data-index="2"></button>
+      <button class="cell" data-index="3"></button>
+      <button class="cell" data-index="4"></button>
+      <button class="cell" data-index="5"></button>
+      <button class="cell" data-index="6"></button>
+      <button class="cell" data-index="7"></button>
+      <button class="cell" data-index="8"></button>
+    </div>
+
+    <section class="scoreboard">
+      <div class="score-card"><div class="label">X ชนะ</div><div class="score" id="scoreX">0</div></div>
+      <div class="score-card"><div class="label">O ชนะ</div><div class="score" id="scoreO">0</div></div>
+      <div class="score-card"><div class="label">เสมอ</div><div class="score" id="scoreDraw">0</div></div>
+    </section>
+
+    <div class="buttons">
+      <button class="action" id="newRoundButton">เริ่มรอบใหม่</button>
+      <button class="action secondary" id="resetScoreButton">ล้างคะแนน</button>
+      <button class="action wide" id="copyLinkButton">คัดลอกลิงก์ห้องนี้</button>
+      <button class="action secondary wide" id="newRoomButton">สร้างห้องใหม่</button>
+    </div>
+
+    <footer>ต้องตั้งค่า Firebase ก่อนใช้งานจริง</footer>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+    import { getDatabase, ref, onValue, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+
+    /*
+      Copy firebaseConfig จาก Firebase Console มาแทน block นี้
+    */
+  const firebaseConfig = {
     apiKey: "AIzaSyCbSZ-sUDyVBpGuBqmczjZMpQzYUty-Ck4",
     authDomain: "tic-tac-toe-pacrim.firebaseapp.com",
         databaseURL: "https://tic-tac-toe-pacrim-default-rtdb.asia-southeast1.firebasedatabase.app/",
@@ -49,141 +93,258 @@ const firebaseConfig = {
     measurementId: "G-4DQYHH83P0"
   };
 
-const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getDatabase(app);
-const $=id=>document.getElementById(id);
-const cells=[...document.querySelectorAll(".cell")];
-const statusText=$("status"),roleText=$("roleText"),roomIdText=$("roomIdText"),errBox=$("error");
-const scoreX=$("scoreX"),scoreO=$("scoreO"),scoreDraw=$("scoreDraw");
-const wins=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
-const AUTO_RESTART_DELAY=2500;
-let uid=null,myRole="viewer",roomRef=null,autoTimer=null,restartKey="";
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
 
-function showError(e,msg){
-  console.error(e);
-  errBox.style.display="block";
-  errBox.textContent=(msg||"เกิดข้อผิดพลาด")+"\n"+(e&&e.code?e.code:"")+(e&&e.message?" "+e.message:"");
-}
-function emptyBoard(){return["","","","","","","","",""]}
-function roomId(){
-  const p=new URLSearchParams(location.search);
-  let r=p.get("room");
-  if(!r){r=Math.random().toString(36).slice(2,8);history.replaceState(null,"",location.pathname+"?room="+r)}
-  return r;
-}
-function newGame(firstUid){
-  return{board:emptyBoard(),startingPlayer:"X",nextStartingPlayer:"O",currentPlayer:"X",players:{X:firstUid},scores:{X:0,O:0,Draw:0},status:"waiting",winner:"",roundNumber:1,finishedAt:0};
-}
-function normalize(g){
-  g.players=g.players||{};
-  g.board=g.board||emptyBoard();
-  g.scores=g.scores||{X:0,O:0,Draw:0};
-  g.startingPlayer=g.startingPlayer||"X";
-  g.nextStartingPlayer=g.nextStartingPlayer||(g.startingPlayer==="X"?"O":"X");
-  g.currentPlayer=g.currentPlayer||g.startingPlayer;
-  g.status=g.status||(g.players.X&&g.players.O?"playing":"waiting");
-  g.winner=g.winner||"";
-  g.roundNumber=g.roundNumber||1;
-  g.finishedAt=g.finishedAt||0;
-  return g;
-}
-function winner(b){
-  for(const w of wins)if(b[w[0]]&&b[w[0]]===b[w[1]]&&b[w[0]]===b[w[2]])return b[w[0]];
-  return"";
-}
-function draw(b){return b.every(Boolean)}
-async function joinRoom(){
-  const r=roomId();
-  roomIdText.textContent=r;
-  roomRef=ref(db,"games/"+r);
-  await runTransaction(roomRef,g=>{
-    if(g===null)return newGame(uid);
-    g=normalize(g);
-    if(g.players.X===uid||g.players.O===uid)return g;
-    if(!g.players.X){g.players.X=uid;g.status=g.players.O?"playing":"waiting";return g}
-    if(!g.players.O){g.players.O=uid;if(g.status!=="finished")g.status="playing";return g}
-    return g;
-  });
-  onValue(roomRef,s=>{const g=s.val();if(g)render(g)},e=>showError(e,"อ่านข้อมูลห้องไม่ได้"));
-}
-function setRole(g){
-  if(g.players&&g.players.X===uid)myRole="X";
-  else if(g.players&&g.players.O===uid)myRole="O";
-  else myRole="viewer";
-  roleText.textContent=myRole==="viewer"?"คุณเป็นผู้ชม":"คุณเป็นผู้เล่น "+myRole;
-}
-function schedule(g){
-  const key=(g.roundNumber||1)+"-"+(g.finishedAt||0)+"-"+(g.winner||"");
-  if(restartKey===key)return;
-  if(autoTimer)clearTimeout(autoTimer);
-  restartKey=key;
-  autoTimer=setTimeout(()=>{autoTimer=null;startNextRound()},AUTO_RESTART_DELAY);
-}
-function clearSchedule(){
-  if(autoTimer)clearTimeout(autoTimer);
-  autoTimer=null;restartKey="";
-}
-function render(g){
-  g=normalize(g);setRole(g);
-  const b=g.board||emptyBoard();
-  cells.forEach((c,i)=>{
-    c.textContent=b[i]||"";
-    const can=(myRole==="X"||myRole==="O")&&g.status==="playing"&&g.currentPlayer===myRole&&!b[i];
-    c.disabled=!can;
-  });
-  scoreX.textContent=g.scores.X||0;scoreO.textContent=g.scores.O||0;scoreDraw.textContent=g.scores.Draw||0;
-  if(g.status==="waiting"){clearSchedule();statusText.textContent="รอผู้เล่นคนที่ 2 เปิดลิงก์เดียวกัน"}
-  else if(g.status==="finished"){statusText.textContent=(g.winner==="Draw"?"เสมอกัน!":g.winner+" ชนะรอบนี้!")+" กำลังเริ่มรอบใหม่...";schedule(g)}
-  else{clearSchedule();statusText.textContent="ตาเดินของ "+g.currentPlayer}
-}
-async function move(i){
-  if(!roomRef||myRole==="viewer")return;
-  await runTransaction(roomRef,g=>{
-    if(!g)return g;g=normalize(g);
-    if(g.status!=="playing"||g.currentPlayer!==myRole||!g.players||g.players[myRole]!==uid)return g;
-    if(g.board[i])return g;
-    g.board[i]=myRole;
-    const w=winner(g.board);
-    if(w||draw(g.board)){
-      g.status="finished";
-      g.winner=w||"Draw";
-      g.scores[w||"Draw"]=(g.scores[w||"Draw"]||0)+1;
-      g.nextStartingPlayer=(g.startingPlayer||"X")==="X"?"O":"X";
-      g.finishedAt=Date.now();
-      return g;
+    const cells = document.querySelectorAll(".cell");
+    const statusText = document.getElementById("status");
+    const roleText = document.getElementById("roleText");
+    const roomIdText = document.getElementById("roomIdText");
+    const scoreX = document.getElementById("scoreX");
+    const scoreO = document.getElementById("scoreO");
+    const scoreDraw = document.getElementById("scoreDraw");
+    const newRoundButton = document.getElementById("newRoundButton");
+    const resetScoreButton = document.getElementById("resetScoreButton");
+    const copyLinkButton = document.getElementById("copyLinkButton");
+    const newRoomButton = document.getElementById("newRoomButton");
+
+    const winningPatterns = [
+      [0, 1, 2], [3, 4, 5], [6, 7, 8],
+      [0, 3, 6], [1, 4, 7], [2, 5, 8],
+      [0, 4, 8], [2, 4, 6]
+    ];
+
+    let uid = null;
+    let myRole = "viewer";
+    let currentRoom = null;
+    let roomRef = null;
+
+    function getRoomIdFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+      let room = params.get("room");
+
+      if (!room) {
+        room = Math.random().toString(36).substring(2, 8);
+        const newUrl = `${window.location.origin}${window.location.pathname}?room=${room}`;
+        window.history.replaceState({}, "", newUrl);
+      }
+
+      return room;
     }
-    g.currentPlayer=myRole==="X"?"O":"X";
-    return g;
-  }).catch(e=>showError(e,"เดินหมากไม่สำเร็จ"));
-}
-async function startNextRound(){
-  if(!roomRef)return;
-  await runTransaction(roomRef,g=>{
-    if(!g)return g;g=normalize(g);
-    if(g.status!=="finished")return g;
-    const s=g.nextStartingPlayer||"X";
-    g.board=emptyBoard();g.startingPlayer=s;g.nextStartingPlayer=s==="X"?"O":"X";g.currentPlayer=s;
-    g.winner="";g.finishedAt=0;g.roundNumber=(g.roundNumber||1)+1;
-    g.status=g.players.X&&g.players.O?"playing":"waiting";
-    return g;
-  }).catch(e=>showError(e,"เริ่มรอบใหม่ไม่สำเร็จ"));
-}
-async function newRound(){if(myRole!=="viewer")await startNextRound()}
-async function resetScore(){
-  if(!roomRef||myRole==="viewer")return;
-  await runTransaction(roomRef,g=>{
-    if(!g)return g;g=normalize(g);
-    g.scores={X:0,O:0,Draw:0};g.board=emptyBoard();g.startingPlayer="X";g.nextStartingPlayer="O";g.currentPlayer="X";
-    g.winner="";g.roundNumber=1;g.finishedAt=0;g.status=g.players.X&&g.players.O?"playing":"waiting";
-    return g;
-  }).catch(e=>showError(e,"ล้างคะแนนไม่สำเร็จ"));
-}
-cells.forEach(c=>c.onclick=()=>move(+c.dataset.i));
-$("newRoundButton").onclick=newRound;
-$("resetScoreButton").onclick=resetScore;
-$("copyLinkButton").onclick=async()=>{try{await navigator.clipboard.writeText(location.href);$("copyLinkButton").textContent="คัดลอกแล้ว";setTimeout(()=>$("copyLinkButton").textContent="คัดลอกลิงก์ห้องนี้",1200)}catch(e){showError(e,"คัดลอกลิงก์ไม่สำเร็จ")}};
-$("newRoomButton").onclick=()=>location.href=location.pathname+"?room="+Math.random().toString(36).slice(2,8);
-signInAnonymously(auth).catch(e=>showError(e,"Firebase Auth ไม่สำเร็จ"));
-onAuthStateChanged(auth,u=>{if(u&&!uid){uid=u.uid;joinRoom().catch(e=>showError(e,"เข้าห้องเกมไม่สำเร็จ"))}});
-</script>
+
+    function emptyBoard() {
+      return ["", "", "", "", "", "", "", "", ""];
+    }
+
+    function createNewGame(firstPlayerUid) {
+      return {
+        board: emptyBoard(),
+        currentPlayer: "X",
+        players: { X: firstPlayerUid },
+        scores: { X: 0, O: 0, Draw: 0 },
+        status: "waiting",
+        winner: ""
+      };
+    }
+
+    function findWinner(board) {
+      for (const pattern of winningPatterns) {
+        const [a, b, c] = pattern;
+        if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+          return board[a];
+        }
+      }
+      return "";
+    }
+
+    function isDraw(board) {
+      return board.every(cell => cell !== "");
+    }
+
+    async function joinRoom() {
+      currentRoom = getRoomIdFromUrl();
+      roomIdText.textContent = currentRoom;
+      roomRef = ref(db, `games/${currentRoom}`);
+
+      await runTransaction(roomRef, game => {
+        if (game === null) {
+          return createNewGame(uid);
+        }
+
+        if (!game.players) game.players = {};
+
+        if (game.players.X === uid || game.players.O === uid) {
+          return game;
+        }
+
+        if (!game.players.X) {
+          game.players.X = uid;
+          game.status = game.players.O ? "playing" : "waiting";
+          return game;
+        }
+
+        if (!game.players.O) {
+          game.players.O = uid;
+          game.status = "playing";
+          return game;
+        }
+
+        return game;
+      });
+
+      onValue(roomRef, snapshot => {
+        renderGame(snapshot.val());
+      });
+    }
+
+    function updateMyRole(game) {
+      if (!game || !game.players) {
+        myRole = "viewer";
+      } else if (game.players.X === uid) {
+        myRole = "X";
+      } else if (game.players.O === uid) {
+        myRole = "O";
+      } else {
+        myRole = "viewer";
+      }
+
+      roleText.textContent = myRole === "viewer" ? "คุณเป็นผู้ชม" : `คุณเป็นผู้เล่น ${myRole}`;
+    }
+
+    function renderGame(game) {
+      if (!game) return;
+
+      updateMyRole(game);
+
+      const board = game.board || emptyBoard();
+
+      cells.forEach((cell, index) => {
+        cell.textContent = board[index] || "";
+
+        const isPlayer = myRole === "X" || myRole === "O";
+        const canMove =
+          isPlayer &&
+          game.status === "playing" &&
+          game.currentPlayer === myRole &&
+          !board[index];
+
+        cell.disabled = !canMove;
+      });
+
+      scoreX.textContent = game.scores?.X || 0;
+      scoreO.textContent = game.scores?.O || 0;
+      scoreDraw.textContent = game.scores?.Draw || 0;
+
+      if (game.status === "waiting") {
+        statusText.textContent = "รอผู้เล่นคนที่ 2 เปิดลิงก์เดียวกัน";
+      } else if (game.status === "finished") {
+        statusText.textContent = game.winner === "Draw" ? "เสมอกัน!" : `${game.winner} ชนะรอบนี้!`;
+      } else {
+        statusText.textContent = `ตาเดินของ ${game.currentPlayer}`;
+      }
+    }
+
+    async function makeMove(index) {
+      if (!roomRef || myRole === "viewer") return;
+
+      await runTransaction(roomRef, game => {
+        if (!game || game.status !== "playing") return game;
+        if (game.currentPlayer !== myRole) return game;
+        if (!game.players || game.players[myRole] !== uid) return game;
+
+        const board = game.board || emptyBoard();
+        if (board[index]) return game;
+
+        board[index] = myRole;
+        game.board = board;
+
+        const winner = findWinner(board);
+
+        if (winner) {
+          game.status = "finished";
+          game.winner = winner;
+          game.scores = game.scores || { X: 0, O: 0, Draw: 0 };
+          game.scores[winner] = (game.scores[winner] || 0) + 1;
+          return game;
+        }
+
+        if (isDraw(board)) {
+          game.status = "finished";
+          game.winner = "Draw";
+          game.scores = game.scores || { X: 0, O: 0, Draw: 0 };
+          game.scores.Draw = (game.scores.Draw || 0) + 1;
+          return game;
+        }
+
+        game.currentPlayer = myRole === "X" ? "O" : "X";
+        return game;
+      });
+    }
+
+    async function newRound() {
+      if (!roomRef || myRole === "viewer") return;
+
+      await runTransaction(roomRef, game => {
+        if (!game) return game;
+
+        game.board = emptyBoard();
+        game.currentPlayer = "X";
+        game.winner = "";
+        game.status = game.players?.X && game.players?.O ? "playing" : "waiting";
+
+        return game;
+      });
+    }
+
+    async function resetScore() {
+      if (!roomRef || myRole === "viewer") return;
+
+      await runTransaction(roomRef, game => {
+        if (!game) return game;
+
+        game.scores = { X: 0, O: 0, Draw: 0 };
+        game.board = emptyBoard();
+        game.currentPlayer = "X";
+        game.winner = "";
+        game.status = game.players?.X && game.players?.O ? "playing" : "waiting";
+
+        return game;
+      });
+    }
+
+    cells.forEach(cell => {
+      cell.addEventListener("click", () => makeMove(Number(cell.dataset.index)));
+    });
+
+    newRoundButton.addEventListener("click", newRound);
+    resetScoreButton.addEventListener("click", resetScore);
+
+    copyLinkButton.addEventListener("click", async () => {
+      await navigator.clipboard.writeText(window.location.href);
+      copyLinkButton.textContent = "คัดลอกแล้ว";
+      setTimeout(() => copyLinkButton.textContent = "คัดลอกลิงก์ห้องนี้", 1400);
+    });
+
+    newRoomButton.addEventListener("click", () => {
+      const room = Math.random().toString(36).substring(2, 8);
+      window.location.href = `${window.location.origin}${window.location.pathname}?room=${room}`;
+    });
+
+    signInAnonymously(auth).catch(error => {
+      console.error(error);
+      statusText.textContent = "เชื่อมต่อ Firebase Auth ไม่สำเร็จ";
+    });
+
+    onAuthStateChanged(auth, user => {
+      if (user && !uid) {
+        uid = user.uid;
+        joinRoom().catch(error => {
+          console.error(error);
+          statusText.textContent = "เชื่อมต่อห้องเกมไม่สำเร็จ";
+        });
+      }
+    });
+  </script>
 </body>
 </html>
