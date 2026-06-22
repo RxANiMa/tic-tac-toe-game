@@ -137,10 +137,11 @@
       return ["", "", "", "", "", "", "", "", ""];
     }
 
-    function createNewGame(firstPlayerUid) {
+  function createNewGame(firstPlayerUid) {
   return {
     board: emptyBoard(),
     startingPlayer: "X",
+    nextStartingPlayer: "O",
     currentPlayer: "X",
     players: { X: firstPlayerUid },
     scores: { X: 0, O: 0, Draw: 0 },
@@ -262,39 +263,51 @@
 
         const winner = findWinner(board);
 
-        if (winner) {
-          game.status = "finished";
-          game.winner = winner;
-          game.scores = game.scores || { X: 0, O: 0, Draw: 0 };
-          game.scores[winner] = (game.scores[winner] || 0) + 1;
-          return game;
-        }
+if (winner) {
+  game.status = "finished";
+  game.winner = winner;
+  game.scores = game.scores || { X: 0, O: 0, Draw: 0 };
+  game.scores[winner] = (game.scores[winner] || 0) + 1;
 
-        if (isDraw(board)) {
-          game.status = "finished";
-          game.winner = "Draw";
-          game.scores = game.scores || { X: 0, O: 0, Draw: 0 };
-          game.scores.Draw = (game.scores.Draw || 0) + 1;
-          return game;
-        }
+  const starterThisRound = game.startingPlayer || "X";
+  game.nextStartingPlayer = starterThisRound === "X" ? "O" : "X";
+
+  return game;
+}
+
+if (isDraw(board)) {
+  game.status = "finished";
+  game.winner = "Draw";
+  game.scores = game.scores || { X: 0, O: 0, Draw: 0 };
+  game.scores.Draw = (game.scores.Draw || 0) + 1;
+
+  const starterThisRound = game.startingPlayer || "X";
+  game.nextStartingPlayer = starterThisRound === "X" ? "O" : "X";
+
+  return game;
+}
 
         game.currentPlayer = myRole === "X" ? "O" : "X";
         return game;
       });
     }
 
-    async function newRound() {
+async function newRound() {
   if (!roomRef || myRole === "viewer") return;
 
   await runTransaction(roomRef, game => {
     if (!game) return game;
 
-    const previousStarter = game.startingPlayer || "X";
-    const nextStarter = previousStarter === "X" ? "O" : "X";
+    // ให้เริ่มรอบใหม่ได้หลังจบรอบเท่านั้น
+    // กันการกดซ้ำแล้วสลับมั่ว
+    if (game.status !== "finished") return game;
+
+    const starter = game.nextStartingPlayer || "X";
 
     game.board = emptyBoard();
-    game.startingPlayer = nextStarter;
-    game.currentPlayer = nextStarter;
+    game.startingPlayer = starter;
+    game.nextStartingPlayer = starter === "X" ? "O" : "X";
+    game.currentPlayer = starter;
     game.winner = "";
     game.status = game.players?.X && game.players?.O ? "playing" : "waiting";
 
@@ -302,7 +315,7 @@
   });
 }
 
-    async function resetScore() {
+async function resetScore() {
   if (!roomRef || myRole === "viewer") return;
 
   await runTransaction(roomRef, game => {
@@ -311,6 +324,7 @@
     game.scores = { X: 0, O: 0, Draw: 0 };
     game.board = emptyBoard();
     game.startingPlayer = "X";
+    game.nextStartingPlayer = "O";
     game.currentPlayer = "X";
     game.winner = "";
     game.status = game.players?.X && game.players?.O ? "playing" : "waiting";
