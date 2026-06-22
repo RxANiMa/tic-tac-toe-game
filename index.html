@@ -116,9 +116,13 @@
     ];
 
     let uid = null;
-    let myRole = "viewer";
-    let currentRoom = null;
-    let roomRef = null;
+let myRole = "viewer";
+let currentRoom = null;
+let roomRef = null;
+
+const AUTO_RESTART_DELAY = 250;
+let autoRestartTimer = null;
+let scheduledRestartKey = "";
 
     function getRoomIdFromUrl() {
       const params = new URLSearchParams(window.location.search);
@@ -137,7 +141,7 @@
       return ["", "", "", "", "", "", "", "", ""];
     }
 
-  function createNewGame(firstPlayerUid) {
+function createNewGame(firstPlayerUid) {
   return {
     board: emptyBoard(),
     startingPlayer: "X",
@@ -146,7 +150,9 @@
     players: { X: firstPlayerUid },
     scores: { X: 0, O: 0, Draw: 0 },
     status: "waiting",
-    winner: ""
+    winner: "",
+    roundNumber: 1,
+    finishedAt: 0
   };
 }
 
@@ -214,6 +220,32 @@
       roleText.textContent = myRole === "viewer" ? "คุณเป็นผู้ชม" : `คุณเป็นผู้เล่น ${myRole}`;
     }
 
+function scheduleAutoRestart(game) {
+  const restartKey = `${game.roundNumber || 1}-${game.finishedAt || 0}`;
+
+  if (scheduledRestartKey === restartKey) return;
+
+  if (autoRestartTimer) {
+    clearTimeout(autoRestartTimer);
+  }
+
+  scheduledRestartKey = restartKey;
+
+  autoRestartTimer = setTimeout(() => {
+    autoRestartTimer = null;
+    startNextRound();
+  }, AUTO_RESTART_DELAY);
+}
+
+function clearAutoRestart() {
+  if (autoRestartTimer) {
+    clearTimeout(autoRestartTimer);
+    autoRestartTimer = null;
+  }
+
+  scheduledRestartKey = "";
+}
+
     function renderGame(game) {
       if (!game) return;
 
@@ -239,13 +271,20 @@
       scoreDraw.textContent = game.scores?.Draw || 0;
 
       if (game.status === "waiting") {
-        statusText.textContent = "รอผู้เล่นคนที่ 2 เปิดลิงก์เดียวกัน";
-      } else if (game.status === "finished") {
-        statusText.textContent = game.winner === "Draw" ? "เสมอกัน!" : `${game.winner} ชนะรอบนี้!`;
-      } else {
-        statusText.textContent = `ตาเดินของ ${game.currentPlayer}`;
-      }
-    }
+  clearAutoRestart();
+  statusText.textContent = "รอผู้เล่นคนที่ 2 เปิดลิงก์เดียวกัน";
+} else if (game.status === "finished") {
+  if (game.winner === "Draw") {
+    statusText.textContent = "เสมอกัน! กำลังเริ่มรอบใหม่...";
+  } else {
+    statusText.textContent = `${game.winner} ชนะรอบนี้! กำลังเริ่มรอบใหม่...`;
+  }
+
+  scheduleAutoRestart(game);
+} else {
+  clearAutoRestart();
+  statusText.textContent = `ตาเดินของ ${game.currentPlayer}`;
+}
 
     async function makeMove(index) {
       if (!roomRef || myRole === "viewer") return;
@@ -271,6 +310,7 @@ if (winner) {
 
   const starterThisRound = game.startingPlayer || "X";
   game.nextStartingPlayer = starterThisRound === "X" ? "O" : "X";
+  game.finishedAt = Date.now();
 
   return game;
 }
@@ -283,6 +323,7 @@ if (isDraw(board)) {
 
   const starterThisRound = game.startingPlayer || "X";
   game.nextStartingPlayer = starterThisRound === "X" ? "O" : "X";
+  game.finishedAt = Date.now();
 
   return game;
 }
@@ -292,14 +333,14 @@ if (isDraw(board)) {
       });
     }
 
-async function newRound() {
-  if (!roomRef || myRole === "viewer") return;
+async function startNextRound() {
+  if (!roomRef) return;
 
   await runTransaction(roomRef, game => {
     if (!game) return game;
 
-    // ให้เริ่มรอบใหม่ได้หลังจบรอบเท่านั้น
-    // กันการกดซ้ำแล้วสลับมั่ว
+    // เริ่มรอบใหม่ได้เฉพาะตอนเกมจบแล้วเท่านั้น
+    // กันไม่ให้กดซ้ำหรือหลายเครื่องสั่งพร้อมกันแล้วสลับมั่ว
     if (game.status !== "finished") return game;
 
     const starter = game.nextStartingPlayer || "X";
@@ -310,9 +351,16 @@ async function newRound() {
     game.currentPlayer = starter;
     game.winner = "";
     game.status = game.players?.X && game.players?.O ? "playing" : "waiting";
+    game.roundNumber = (game.roundNumber || 1) + 1;
+    game.finishedAt = 0;
 
     return game;
   });
+}
+
+async function newRound() {
+  if (!roomRef || myRole === "viewer") return;
+  await startNextRound();
 }
 
 async function resetScore() {
@@ -327,6 +375,8 @@ async function resetScore() {
     game.nextStartingPlayer = "O";
     game.currentPlayer = "X";
     game.winner = "";
+    game.roundNumber = 1;
+    game.finishedAt = 0;
     game.status = game.players?.X && game.players?.O ? "playing" : "waiting";
 
     return game;
