@@ -31,13 +31,25 @@
     button.action { border: none; border-radius: 12px; padding: 12px; font-size: 15px; cursor: pointer; background: #222; color: white; }
     button.secondary { background: #777; }
     button.wide { grid-column: 1 / -1; }
+    .error {
+      display: none;
+      margin-top: 12px;
+      padding: 10px;
+      border-radius: 10px;
+      background: #fff0f0;
+      color: #a00000;
+      font-size: 13px;
+      text-align: left;
+      white-space: pre-wrap;
+    }
     footer { margin-top: 14px; font-size: 12px; color: #888; }
   </style>
 </head>
 <body>
   <main class="container">
     <h1>Realtime Tic Tac Toe</h1>
-    <div class="small">เปิดลิงก์เดียวกันเพื่อเล่นด้วยกัน คนที่ 3 เป็นต้นไปจะเป็นผู้ชม</div>
+    <div class="small">คนแรกที่เข้าห้องเป็น Observer คนที่สองเป็น X คนที่สามเป็น O</div>
+    <div class="small">หลังจากนั้นผู้ที่เข้ามาเพิ่มจะเป็น Observer และดูเกมได้เท่านั้น</div>
 
     <div class="room-box">
       <div><strong>Room:</strong> <span id="roomIdText">Loading...</span></div>
@@ -70,6 +82,8 @@
       <button class="action wide" id="copyLinkButton">คัดลอกลิงก์ห้องนี้</button>
       <button class="action secondary wide" id="newRoomButton">สร้างห้องใหม่</button>
     </div>
+
+    <div class="error" id="errorBox"></div>
 
     <footer>ต้องตั้งค่า Firebase ก่อนใช้งานจริง</footer>
   </main>
@@ -108,6 +122,7 @@
     const resetScoreButton = document.getElementById("resetScoreButton");
     const copyLinkButton = document.getElementById("copyLinkButton");
     const newRoomButton = document.getElementById("newRoomButton");
+    const errorBox = document.getElementById("errorBox");
 
     const winningPatterns = [
       [0, 1, 2], [3, 4, 5], [6, 7, 8],
@@ -116,9 +131,15 @@
     ];
 
     let uid = null;
-    let myRole = "viewer";
+    let myRole = "observer";
     let currentRoom = null;
     let roomRef = null;
+
+    function showError(error, message) {
+      console.error(error);
+      errorBox.style.display = "block";
+      errorBox.textContent = message + "\n" + (error && error.code ? error.code : "") + " " + (error && error.message ? error.message : "");
+    }
 
     function getRoomIdFromUrl() {
       const params = new URLSearchParams(window.location.search);
@@ -137,15 +158,47 @@
       return ["", "", "", "", "", "", "", "", ""];
     }
 
-    function createNewGame(firstPlayerUid) {
+    function createNewGame(firstObserverUid) {
       return {
         board: emptyBoard(),
         currentPlayer: "X",
-        players: { X: firstPlayerUid },
+        players: {},
+        observers: { first: firstObserverUid },
         scores: { X: 0, O: 0, Draw: 0 },
         status: "waiting",
         winner: ""
       };
+    }
+
+    function normalizeGame(game) {
+      if (!game.players) game.players = {};
+      if (!game.observers) game.observers = {};
+      if (!game.board) game.board = emptyBoard();
+      if (!game.scores) game.scores = { X: 0, O: 0, Draw: 0 };
+      if (!game.currentPlayer) game.currentPlayer = "X";
+      if (!game.status) game.status = game.players.X && game.players.O ? "playing" : "waiting";
+      if (!game.winner) game.winner = "";
+      return game;
+    }
+
+    function isAlreadyObserver(game, userId) {
+      if (!game.observers) return false;
+
+      for (const key in game.observers) {
+        if (game.observers[key] === userId) {
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+    function addObserver(game, userId) {
+      if (!game.observers) game.observers = {};
+      if (isAlreadyObserver(game, userId)) return;
+
+      const observerId = "observer_" + userId;
+      game.observers[observerId] = userId;
     }
 
     function findWinner(board) {
@@ -172,49 +225,64 @@
           return createNewGame(uid);
         }
 
-        if (!game.players) game.players = {};
+        game = normalizeGame(game);
 
-        if (game.players.X === uid || game.players.O === uid) {
+        if (game.players.X === uid || game.players.O === uid || isAlreadyObserver(game, uid)) {
           return game;
         }
 
+        // คนแรกของห้องเป็น Observer
+        if (!game.observers.first) {
+          game.observers.first = uid;
+          return game;
+        }
+
+        // คนที่สองเป็น X
         if (!game.players.X) {
           game.players.X = uid;
           game.status = game.players.O ? "playing" : "waiting";
           return game;
         }
 
+        // คนที่สามเป็น O
         if (!game.players.O) {
           game.players.O = uid;
           game.status = "playing";
           return game;
         }
 
+        // คนหลังจากนั้นเป็น Observer
+        addObserver(game, uid);
         return game;
+      }).catch(error => {
+        showError(error, "เข้าห้องเกมไม่สำเร็จ");
       });
 
       onValue(roomRef, snapshot => {
         renderGame(snapshot.val());
+      }, error => {
+        showError(error, "อ่านข้อมูลห้องเกมไม่สำเร็จ");
       });
     }
 
     function updateMyRole(game) {
       if (!game || !game.players) {
-        myRole = "viewer";
+        myRole = "observer";
       } else if (game.players.X === uid) {
         myRole = "X";
       } else if (game.players.O === uid) {
         myRole = "O";
       } else {
-        myRole = "viewer";
+        myRole = "observer";
       }
 
-      roleText.textContent = myRole === "viewer" ? "คุณเป็นผู้ชม" : `คุณเป็นผู้เล่น ${myRole}`;
+      roleText.textContent = myRole === "observer" ? "คุณเป็น Observer" : `คุณเป็นผู้เล่น ${myRole}`;
     }
 
     function renderGame(game) {
       if (!game) return;
 
+      game = normalizeGame(game);
       updateMyRole(game);
 
       const board = game.board || emptyBoard();
@@ -237,7 +305,13 @@
       scoreDraw.textContent = game.scores?.Draw || 0;
 
       if (game.status === "waiting") {
-        statusText.textContent = "รอผู้เล่นคนที่ 2 เปิดลิงก์เดียวกัน";
+        if (!game.players.X) {
+          statusText.textContent = "รอผู้เล่น X เข้าห้อง";
+        } else if (!game.players.O) {
+          statusText.textContent = "รอผู้เล่น O เข้าห้อง";
+        } else {
+          statusText.textContent = "รอผู้เล่น";
+        }
       } else if (game.status === "finished") {
         statusText.textContent = game.winner === "Draw" ? "เสมอกัน!" : `${game.winner} ชนะรอบนี้!`;
       } else {
@@ -246,10 +320,13 @@
     }
 
     async function makeMove(index) {
-      if (!roomRef || myRole === "viewer") return;
+      if (!roomRef || myRole === "observer") return;
 
       await runTransaction(roomRef, game => {
-        if (!game || game.status !== "playing") return game;
+        if (!game) return game;
+        game = normalizeGame(game);
+
+        if (game.status !== "playing") return game;
         if (game.currentPlayer !== myRole) return game;
         if (!game.players || game.players[myRole] !== uid) return game;
 
@@ -283,11 +360,12 @@
     }
 
     async function newRound() {
-      if (!roomRef || myRole === "viewer") return;
+      if (!roomRef || myRole === "observer") return;
 
       await runTransaction(roomRef, game => {
         if (!game) return game;
 
+        game = normalizeGame(game);
         game.board = emptyBoard();
         game.currentPlayer = "X";
         game.winner = "";
@@ -298,11 +376,12 @@
     }
 
     async function resetScore() {
-      if (!roomRef || myRole === "viewer") return;
+      if (!roomRef || myRole === "observer") return;
 
       await runTransaction(roomRef, game => {
         if (!game) return game;
 
+        game = normalizeGame(game);
         game.scores = { X: 0, O: 0, Draw: 0 };
         game.board = emptyBoard();
         game.currentPlayer = "X";
@@ -332,7 +411,7 @@
     });
 
     signInAnonymously(auth).catch(error => {
-      console.error(error);
+      showError(error, "เชื่อมต่อ Firebase Auth ไม่สำเร็จ");
       statusText.textContent = "เชื่อมต่อ Firebase Auth ไม่สำเร็จ";
     });
 
@@ -340,7 +419,7 @@
       if (user && !uid) {
         uid = user.uid;
         joinRoom().catch(error => {
-          console.error(error);
+          showError(error, "เชื่อมต่อห้องเกมไม่สำเร็จ");
           statusText.textContent = "เชื่อมต่อห้องเกมไม่สำเร็จ";
         });
       }
