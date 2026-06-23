@@ -28,7 +28,7 @@
 
 <main id="game" class="hide">
 <h1>Realtime Tic Tac Toe</h1>
-<div class="small">ผู้เล่น 2 คนต่อห้อง คนอื่นเป็นผู้ชมเมื่อทุกห้องเต็มแล้ว</div>
+<div class="small">ผู้เล่น 2 คนต่อห้อง / X และ O สลับกันเริ่ม / จบรอบแล้วเริ่มใหม่อัตโนมัติ</div>
 <div class="box">
 <div><b>Code:</b> <span id="gameCodeText">-</span></div>
 <div><b>Room:</b> <span id="roomIdText">-</span></div>
@@ -75,7 +75,7 @@ const rooms=["room1","room2","room3","room4","room5","room6"];
 const $=id=>document.getElementById(id);
 const cells=[...document.querySelectorAll(".cell")];
 const wins=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
-let uid=null,myRole="viewer",gameCode="",roomRef=null,roomUnsub=null,lobbyUnsub=null;
+let uid=null,myRole="viewer",gameCode="",roomRef=null,roomUnsub=null,lobbyUnsub=null;const AUTO_RESTART_DELAY=200;let restartTimer=null,restartKey="";
 
 function err(el,e,msg){console.error(e);el.style.display="block";el.textContent=msg+"\n"+(e&&e.code?e.code:"")+" "+(e&&e.message?e.message:"")}
 function newCode(){return Math.random().toString(36).slice(2,8).toUpperCase()}
@@ -88,8 +88,8 @@ function pathRoom(room){return pathRooms()+"/"+room}
 function showLobby(){$("lobby").classList.remove("hide");$("game").classList.add("hide")}
 function showGame(){$("lobby").classList.add("hide");$("game").classList.remove("hide")}
 function emptyBoard(){return["","","","","","","","",""]}
-function newGame(firstUid){return{board:emptyBoard(),currentPlayer:"X",players:{X:firstUid},scores:{X:0,O:0,Draw:0},status:"waiting",winner:""}}
-function norm(g){g.players=g.players||{};g.board=g.board||emptyBoard();g.scores=g.scores||{X:0,O:0,Draw:0};g.currentPlayer=g.currentPlayer||"X";g.status=g.status||(g.players.X&&g.players.O?"playing":"waiting");g.winner=g.winner||"";return g}
+function newGame(firstUid){return{board:emptyBoard(),startingPlayer:"X",nextStartingPlayer:"O",currentPlayer:"X",players:{X:firstUid},scores:{X:0,O:0,Draw:0},status:"waiting",winner:"",finishedAt:0}}
+function norm(g){g.players=g.players||{};g.board=g.board||emptyBoard();g.scores=g.scores||{X:0,O:0,Draw:0};g.startingPlayer=g.startingPlayer||"X";g.nextStartingPlayer=g.nextStartingPlayer||(g.startingPlayer==="X"?"O":"X");g.currentPlayer=g.currentPlayer||g.startingPlayer;g.status=g.status||(g.players.X&&g.players.O?"playing":"waiting");g.winner=g.winner||"";g.finishedAt=g.finishedAt||0;return g}
 function count(g){return g&&g.players?(g.players.X?1:0)+(g.players.O?1:0):0}
 function allFull(gs){return rooms.every(r=>count(gs&&gs[r])>=2)}
 function win(b){for(const w of wins)if(b[w[0]]&&b[w[0]]===b[w[1]]&&b[w[0]]===b[w[2]])return b[w[0]];return""}
@@ -122,14 +122,19 @@ async function joinRoom(room,viewer){showGame();$("gameCodeText").textContent=ga
  if(roomUnsub)roomUnsub();roomUnsub=onValue(roomRef,s=>{const g=s.val();if(!g){$("status").textContent="ไม่พบห้องเกม";$("roleText").textContent="กลับไปเลือกห้อง";return}renderGame(g)},e=>err($("error"),e,"อ่านข้อมูลห้องไม่สำเร็จ"));
 }
 
+
+function clearAuto(){if(restartTimer){clearTimeout(restartTimer);restartTimer=null}restartKey=""}
+function scheduleAuto(g){const k=(g.finishedAt||0)+"_"+(g.winner||"")+"_"+(g.startingPlayer||"X");if(restartKey===k)return;if(restartTimer)clearTimeout(restartTimer);restartKey=k;restartTimer=setTimeout(()=>{restartTimer=null;startNextRound()},AUTO_RESTART_DELAY)}
+async function startNextRound(){if(!roomRef)return;await runTransaction(roomRef,g=>{if(!g)return g;g=norm(g);if(g.status!=="finished")return g;const starter=g.nextStartingPlayer||"X";g.board=emptyBoard();g.startingPlayer=starter;g.nextStartingPlayer=starter==="X"?"O":"X";g.currentPlayer=starter;g.winner="";g.finishedAt=0;g.status=g.players.X&&g.players.O?"playing":"waiting";return g}).catch(e=>err($("error"),e,"เริ่มรอบใหม่อัตโนมัติไม่สำเร็จ"))}
+
 function setRole(g){if(g.players&&g.players.X===uid)myRole="X";else if(g.players&&g.players.O===uid)myRole="O";else myRole="viewer";$("roleText").textContent=myRole==="viewer"?"คุณเป็นผู้ชม":"คุณเป็นผู้เล่น "+myRole}
 function renderGame(g){g=norm(g);setRole(g);const b=g.board;cells.forEach((c,i)=>{c.textContent=b[i]||"";c.disabled=!(["X","O"].includes(myRole)&&g.status==="playing"&&g.currentPlayer===myRole&&!b[i])});
  $("scoreX").textContent=g.scores.X||0;$("scoreO").textContent=g.scores.O||0;$("scoreDraw").textContent=g.scores.Draw||0;
- if(g.status==="waiting")$("status").textContent="รอผู้เล่นคนที่ 2 เข้าห้องนี้";else if(g.status==="finished")$("status").textContent=g.winner==="Draw"?"เสมอกัน!":g.winner+" ชนะรอบนี้!";else $("status").textContent="ตาเดินของ "+g.currentPlayer;
+ if(g.status==="waiting"){clearAuto();$("status").textContent="รอผู้เล่นคนที่ 2 เข้าห้องนี้"}else if(g.status==="finished"){$("status").textContent=g.winner==="Draw"?"เสมอกัน! กำลังเริ่มรอบใหม่...":g.winner+" ชนะรอบนี้! กำลังเริ่มรอบใหม่...";scheduleAuto(g)}else{clearAuto();$("status").textContent="ตาเดินของ "+g.currentPlayer}
 }
-async function move(i){if(!roomRef||myRole==="viewer")return;await runTransaction(roomRef,g=>{if(!g)return g;g=norm(g);if(g.status!=="playing"||g.currentPlayer!==myRole||g.players[myRole]!==uid||g.board[i])return g;g.board[i]=myRole;const w=win(g.board);if(w||draw(g.board)){g.status="finished";g.winner=w||"Draw";g.scores[w||"Draw"]=(g.scores[w||"Draw"]||0)+1;return g}g.currentPlayer=myRole==="X"?"O":"X";return g}).catch(e=>err($("error"),e,"เดินหมากไม่สำเร็จ"))}
-async function newRound(){if(!roomRef||myRole==="viewer")return;await runTransaction(roomRef,g=>{if(!g)return g;g=norm(g);g.board=emptyBoard();g.currentPlayer="X";g.winner="";g.status=g.players.X&&g.players.O?"playing":"waiting";return g}).catch(e=>err($("error"),e,"เริ่มรอบใหม่ไม่สำเร็จ"))}
-async function resetScore(){if(!roomRef||myRole==="viewer")return;await runTransaction(roomRef,g=>{if(!g)return g;g=norm(g);g.scores={X:0,O:0,Draw:0};g.board=emptyBoard();g.currentPlayer="X";g.winner="";g.status=g.players.X&&g.players.O?"playing":"waiting";return g}).catch(e=>err($("error"),e,"ล้างคะแนนไม่สำเร็จ"))}
+async function move(i){if(!roomRef||myRole==="viewer")return;await runTransaction(roomRef,g=>{if(!g)return g;g=norm(g);if(g.status!=="playing"||g.currentPlayer!==myRole||g.players[myRole]!==uid||g.board[i])return g;g.board[i]=myRole;const w=win(g.board);if(w||draw(g.board)){g.status="finished";g.winner=w||"Draw";g.scores[w||"Draw"]=(g.scores[w||"Draw"]||0)+1;g.nextStartingPlayer=(g.startingPlayer||"X")==="X"?"O":"X";g.finishedAt=Date.now();return g}g.currentPlayer=myRole==="X"?"O":"X";return g}).catch(e=>err($("error"),e,"เดินหมากไม่สำเร็จ"))}
+async function newRound(){if(!roomRef||myRole==="viewer")return;await runTransaction(roomRef,g=>{if(!g)return g;g=norm(g);const starter=g.nextStartingPlayer||((g.startingPlayer||"X")==="X"?"O":"X");g.board=emptyBoard();g.startingPlayer=starter;g.nextStartingPlayer=starter==="X"?"O":"X";g.currentPlayer=starter;g.winner="";g.finishedAt=0;g.status=g.players.X&&g.players.O?"playing":"waiting";return g}).catch(e=>err($("error"),e,"เริ่มรอบใหม่ไม่สำเร็จ"))}
+async function resetScore(){if(!roomRef||myRole==="viewer")return;await runTransaction(roomRef,g=>{if(!g)return g;g=norm(g);g.scores={X:0,O:0,Draw:0};g.board=emptyBoard();g.startingPlayer="X";g.nextStartingPlayer="O";g.currentPlayer="X";g.winner="";g.finishedAt=0;g.status=g.players.X&&g.players.O?"playing":"waiting";return g}).catch(e=>err($("error"),e,"ล้างคะแนนไม่สำเร็จ"))}
 
 cells.forEach(c=>c.onclick=()=>move(+c.dataset.i));
 $("newRoundBtn").onclick=newRound;$("resetScoreBtn").onclick=resetScore;
